@@ -1,0 +1,95 @@
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+-- Discord webhook URL
+local webhookUrl = "https://discord.com/api/webhooks/1368393336183849085/hd-r2quKsj1_nw5YK1JEBHlpktkTVlGJH_hIB4W5aBJyL_Ik3WdtW16mZ_kU-avGYKkI"
+
+-- Function to send data to webhook
+local function sendToWebhook(userId, clientId, username)
+    -- Format the data as requested: 0,UserID,{ID},Clientid,{ClientID},Username
+    local formattedData = string.format("0,UserID,%s,Clientid,%s,Username,%s", userId, clientId, username)
+    
+    -- Create the payload for Discord
+    local data = {
+        content = formattedData
+    }
+    
+    -- Convert the data to JSON
+    local jsonData = HttpService:JSONEncode(data)
+    
+    -- Send the HTTP request
+    local success, response = pcall(function()
+        return HttpService:PostAsync(webhookUrl, jsonData, Enum.HttpContentType.ApplicationJson, false)
+    end)
+    
+    if success then
+        print("Successfully sent data to webhook")
+    else
+        warn("Failed to send data to webhook:", response)
+    end
+end
+
+-- Function to get client ID (for local scripts)
+local function getClientId()
+    local success, clientId = pcall(function()
+        return game:GetService("RbxAnalyticsService"):GetClientId()
+    end)
+    
+    if success then
+        return clientId
+    else
+        return "Unknown ClientID"
+    end
+end
+
+-- For server scripts: Log player info when they join
+local function setupServerLogging()
+    Players.PlayerAdded:Connect(function(player)
+        -- Note: ClientID can only be obtained from the client
+        -- We'll send "Request ClientID" for server-side implementation
+        sendToWebhook(player.UserId, "Request ClientID", player.Name)
+    end)
+end
+
+-- For local scripts: Log the current player's info
+local function logLocalPlayerInfo()
+    local player = Players.LocalPlayer
+    local clientId = getClientId()
+    
+    sendToWebhook(player.UserId, clientId, player.Name)
+end
+
+-- Determine if this is running on server or client
+if game:GetService("RunService"):IsServer() then
+    -- Server-side setup
+    setupServerLogging()
+    
+    -- Create a RemoteFunction for clients to send their ClientID
+    local clientIdRemote = Instance.new("RemoteFunction")
+    clientIdRemote.Name = "SendClientIdToServer"
+    clientIdRemote.Parent = game:GetService("ReplicatedStorage")
+    
+    -- Handle client ID submissions
+    function clientIdRemote.OnServerInvoke(player, clientId)
+        sendToWebhook(player.UserId, clientId, player.Name)
+        return true
+    end
+else
+    -- Client-side implementation
+    -- Wait for the player to load
+    if not Players.LocalPlayer then
+        Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    end
+    
+    -- Wait a moment to ensure everything is loaded
+    task.wait(3)
+    
+    -- Log the player info
+    logLocalPlayerInfo()
+    
+    -- Alternative: Send to server if RemoteFunction exists
+    local remoteFunction = game:GetService("ReplicatedStorage"):FindFirstChild("SendClientIdToServer")
+    if remoteFunction then
+        remoteFunction:InvokeServer(getClientId())
+    end
+end
